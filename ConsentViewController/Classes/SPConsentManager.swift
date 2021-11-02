@@ -283,6 +283,11 @@ import UIKit
         }
     }
 
+    public func nextMessageIfAny(_ vcFinished: UIViewController) {
+        finished(vcFinished)
+        renderNextMessageIfAny()
+    }
+
     public func loadGDPRPrivacyManager(withId id: String, tab: SPPrivacyManagerTab = .Default) {
         #if os(iOS)
         guard let pmUrl = Constants.GDPR_PM_URL.appendQueryItems([
@@ -300,7 +305,6 @@ import UIKit
         spClient.getGDPRMessage(propertyId: propertyIdString, consentLanguage: messageLanguage, messageId: id) { [weak self] result in
             switch result {
             case .success(let message):
-                /// TODO: refactor
                 var nativePMMessage: PrivacyManagerViewData?
                 switch message.messageJson {
                 case .nativePM(let content):
@@ -415,11 +419,6 @@ extension SPConsentManager: SPMessageUIDelegate {
         }
     }
 
-    func finishAndNextIfAny(_ vcFinished: UIViewController) {
-        finished(vcFinished)
-        renderNextMessageIfAny()
-    }
-
     func reportIdfaStatus(status: SPIDFAStatus, messageId: Int?) {
         var uuid = ""
         var uuidType: SPCampaignType?
@@ -446,7 +445,7 @@ extension SPConsentManager: SPMessageUIDelegate {
         switch action.type {
         case .AcceptAll, .RejectAll, .SaveAndExit:
             report(action: action)
-            finishAndNextIfAny(controller)
+            nextMessageIfAny(controller)
         case .ShowPrivacyManager:
             guard let url = action.pmURL?.appendQueryItems(["site_id": propertyIdString]) else {
                 onError(InvalidURLError(urlString: "Empty or invalid PM URL"))
@@ -460,12 +459,12 @@ extension SPConsentManager: SPMessageUIDelegate {
                 spController.closePrivacyManager()
             }
         case .Dismiss:
-            finishAndNextIfAny(controller)
+            nextMessageIfAny(controller)
         case .RequestATTAccess:
             SPIDFAStatus.requestAuthorisation { [weak self] status in
                 let spController = controller as? SPMessageViewController
                 self?.reportIdfaStatus(status: status, messageId: Int(spController?.messageId ?? ""))
-                self?.finishAndNextIfAny(controller)
+                self?.nextMessageIfAny(controller)
                 if status == .accepted {
                     action.type = .IDFAAccepted
                     self?.delegate?.onAction(action, from: controller)
@@ -475,7 +474,7 @@ extension SPConsentManager: SPMessageUIDelegate {
                 }
             }
         default:
-            print("[SDK] UNKNOWN Action")
+            break
         }
     }
 }
